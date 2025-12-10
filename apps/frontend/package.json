@@ -13,6 +13,7 @@
   "dependencies": {
     "@emoji-mart/data": "^1.1.2",
     "@emoji-mart/react": "^1.1.1",
+    "@tanstack/react-query": "^5.90.12",
     "@vapor-ui/core": "^1.0.0-beta.4",
     "@vapor-ui/icons": "^1.0.0-beta.3",
     "axios": "^1.4.0",
