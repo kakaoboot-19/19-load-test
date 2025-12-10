@@ -23,7 +23,10 @@ const ProfileImageUpload = ({ currentImage, onImageChange }) => {
   // 컴포넌트 마운트 시 이미지 설정
   useEffect(() => {
     const imageUrl = getProfileImageUrl(currentImage);
-    setPreviewUrl(imageUrl);
+    if (imageUrl && imageUrl !== previewUrl){
+        setPreviewUrl(imageUrl);
+    }
+    // setPreviewUrl(imageUrl);
   }, [currentImage]);
 
   const handleFileSelect = async (e) => {
@@ -46,6 +49,7 @@ const ProfileImageUpload = ({ currentImage, onImageChange }) => {
 
       // 파일 미리보기 생성
       const objectUrl = URL.createObjectURL(file);
+      console.log("파일 미리보기 생성", objectUrl);
       setPreviewUrl(objectUrl);
 
       // 인증 정보 확인
@@ -82,7 +86,11 @@ const ProfileImageUpload = ({ currentImage, onImageChange }) => {
       localStorage.setItem('user', JSON.stringify(updatedUser));
 
       // 부모 컴포넌트에 변경 알림
+      console.log("새 이미지 url", data.imageUrl); // /api/uploads/profiles/1765364803883_ca834d2a5f791afe.png
       onImageChange(data.imageUrl);
+
+      const fullImageUrl = getProfileImageUrl(data.imageUrl);
+      setPreviewUrl(fullImageUrl);
 
       Toast.success('프로필 이미지가 변경되었습니다.');
 
@@ -93,7 +101,7 @@ const ProfileImageUpload = ({ currentImage, onImageChange }) => {
       console.error('Image upload error:', error);
       setError(error.message);
       setPreviewUrl(getProfileImageUrl(currentImage));
-      
+
       // 기존 objectUrl 정리
       if (previewUrl && previewUrl.startsWith('blob:')) {
         URL.revokeObjectURL(previewUrl);
@@ -168,6 +176,7 @@ const ProfileImageUpload = ({ currentImage, onImageChange }) => {
     <VStack gap="$300" alignItems="center">
       <CustomAvatar
         user={user}
+        src={previewUrl}
         size="xl"
         persistent={true}
         showInitials={true}
