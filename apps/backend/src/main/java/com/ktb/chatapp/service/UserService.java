@@ -1,6 +1,7 @@
 package com.ktb.chatapp.service;
 
 import com.ktb.chatapp.dto.ProfileImageResponse;
+import com.ktb.chatapp.dto.UpdatePasswordRequest;
 import com.ktb.chatapp.dto.UpdateProfileRequest;
 import com.ktb.chatapp.dto.UserResponse;
 import com.ktb.chatapp.model.User;
@@ -10,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -28,6 +30,7 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final FileService fileService;
+    private final PasswordEncoder passwordEncoder;
 
     @Value("${app.upload.dir:uploads}")
     private String uploadDir;
@@ -63,6 +66,28 @@ public class UserService {
 
         User updatedUser = userRepository.save(user);
         log.info("사용자 프로필 업데이트 완료 - ID: {}, Name: {}", user.getId(), request.getName());
+
+        return UserResponse.from(updatedUser);
+    }
+
+    /**
+     * 사용자 비밀번호 업데이트
+     * @param password 사용자 비밀번호
+     */
+    public UserResponse updateUserPassword(String email, UpdatePasswordRequest request) {
+        User user = userRepository.findByEmail(email.toLowerCase())
+                .orElseThrow(() -> new UsernameNotFoundException("사용자를 찾을 수 없습니다."));
+//
+//        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
+//            throw new IllegalArgumentException("현재 비밀번호가 일치하지 않습니다.");
+//        }
+
+        // 비밀번호 정보 업데이트
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        user.setUpdatedAt(LocalDateTime.now());
+
+        User updatedUser = userRepository.save(user);
+        log.info("사용자 비밀번호 업데이트 완료 - ID: {}, Name: {}", user.getId(), request.getNewPassword());
 
         return UserResponse.from(updatedUser);
     }
