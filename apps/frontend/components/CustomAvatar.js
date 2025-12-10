@@ -102,16 +102,30 @@ const CustomAvatar = forwardRef(({
     });
   }, [persistent, currentImage, user?.name, user?.email, user?.profileImage, getImageUrl]);
 
-  // 최종 이미지 URL 결정
-  const finalImageUrl = (() => {
-    if (!showImage) return undefined;
+//   // 최종 이미지 URL 결정
+//   const finalImageUrl = (() => {
+//     if (!showImage) return undefined;
     
-    if (persistent) {
-      return currentImage && !imageError ? currentImage : undefined;
-    }
+//     if (persistent) {
+//       return currentImage && !imageError ? currentImage : undefined;
+//     }
     
-    return getImageUrl(user?.profileImage);
-  })();
+//     return getImageUrl(user?.profileImage);
+//   })();
+
+    // 수정된 로직
+    const finalImageUrl = (() => {
+        if (!showImage) return undefined;
+
+        // [수정 포인트] src prop이 있다면, persistent 여부와 상관없이 무조건 1순위로 보여줌 (미리보기용)
+        if (src) return src; 
+        
+        if (persistent) {
+            return currentImage && !imageError ? currentImage : undefined;
+        }
+        
+        return getImageUrl(user?.profileImage);
+    })();
 
   // 사용자 이름 첫 글자
   const initial = showInitials ? (user?.name?.charAt(0)?.toUpperCase() || '?') : '';

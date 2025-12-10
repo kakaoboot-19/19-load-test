@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -73,6 +74,8 @@ public class SecurityConfig {
                                 "/api/swagger-ui.html",
                                 "/api/docs/**"
                         ).permitAll()
+                        // 업로드된 정적 파일은 인증 없이 접근 가능해야 프리뷰 401을 피할 수 있음
+                        .requestMatchers(HttpMethod.GET, "/api/uploads/**").permitAll()
                         .requestMatchers("/api/**").authenticated()
                         .anyRequest().permitAll()
                 )
@@ -95,17 +98,17 @@ public class SecurityConfig {
     private CorsConfiguration createCorsConfiguration() {
         CorsConfiguration config = new CorsConfiguration();
         if (CORS_ALLOWED_ORIGINS.contains("*")) {
-            log.warn("╔═══════════════════════════════════════════════════════════════════════════════╗");
-            log.warn("║                           ⚠️  CORS 보안 경고  ⚠️                              ║");
-            log.warn("╠═══════════════════════════════════════════════════════════════════════════════╣");
-            log.warn("║  CORS_ALLOWED_ORIGINS에 와일드카드 '*'가 포함되어 있습니다.                 ║");
-            log.warn("║  ➜ 모든 Origin의 요청을 허용하므로 보안 위험이 있습니다.                    ║");
-            log.warn("║                                                                               ║");
-            log.warn("║  🔓 예상하지 못한 도메인에서의 요청도 수용됩니다:                           ║");
-            log.warn("║     예시) https://a-team-front.com → https://b-team-backend.com             ║");
-            log.warn("║                                                                               ║");
-            log.warn("║  💡 팀 도메인으로 CORS 설정하세요.         ║");
-            log.warn("╚═══════════════════════════════════════════════════════════════════════════════╝");
+//            log.warn("╔═══════════════════════════════════════════════════════════════════════════════╗");
+//            log.warn("║                           ⚠️  CORS 보안 경고  ⚠️                              ║");
+//            log.warn("╠═══════════════════════════════════════════════════════════════════════════════╣");
+//            log.warn("║  CORS_ALLOWED_ORIGINS에 와일드카드 '*'가 포함되어 있습니다.                 ║");
+//            log.warn("║  ➜ 모든 Origin의 요청을 허용하므로 보안 위험이 있습니다.                    ║");
+//            log.warn("║                                                                               ║");
+//            log.warn("║  🔓 예상하지 못한 도메인에서의 요청도 수용됩니다:                           ║");
+//            log.warn("║     예시) https://a-team-front.com → https://b-team-backend.com             ║");
+//            log.warn("║                                                                               ║");
+//            log.warn("║  💡 팀 도메인으로 CORS 설정하세요.         ║");
+//            log.warn("╚═══════════════════════════════════════════════════════════════════════════════╝");
         }
         config.setAllowedOriginPatterns(CORS_ALLOWED_ORIGINS);
         config.setAllowedMethods(CORS_ALLOWED_METHODS);

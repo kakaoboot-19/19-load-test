@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import { ErrorCircleIcon, CheckCircleIcon } from '@vapor-ui/icons';
 import {
@@ -15,27 +15,34 @@ import {
 import { useAuth, withoutAuth } from '@/contexts/AuthContext';
 
 const Register = () => {
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    password: '',
-    confirmPassword: ''
-  });
+
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+
+
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
+
   const router = useRouter();
   const { register: registerContext } = useAuth();
 
-  const validateForm = () => {
-    // 비밀번호 일치 확인만 추가 검증 (나머지는 HTML5 폼 검증)
-    if (formData.password !== formData.confirmPassword) {
-      setError('비밀번호가 일치하지 않습니다.');
-      return false;
+    const validateForm = () => {
+    if (password !== confirmPassword) {
+        setError('비밀번호가 일치하지 않습니다.');
+        return false;
     }
-
     return true;
-  };
+    };
+
+
+    const handleNameChange = useCallback((v) => setName(v), []);
+    const handleEmailChange = useCallback((v) => setEmail(v), []);
+    const handlePasswordChange = useCallback((v) => setPassword(v), []);
+    const handleConfirmPasswordChange = useCallback((v) => setConfirmPassword(v), []);
+  
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -49,15 +56,17 @@ const Register = () => {
     setSuccess(false);
 
     try {
-      const { name, email, password } = formData;
+      // const { name, email, password } = formData;
       await registerContext({ name, email, password });
       
       setSuccess(true);
       setLoading(false);
       
-      setTimeout(() => {
-        router.push('/login');
-      }, 1000);
+      router.push('/login');
+
+    //   setTimeout(() => {
+    //     router.push('/login');
+    //   }, 1000);
     } catch (err) {
       setError(err.message || '회원가입 처리 중 오류가 발생했습니다.');
       setLoading(false);
@@ -111,8 +120,9 @@ const Register = () => {
                   type="text"
                   required
                   disabled={loading}
-                  value={formData.name}
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, name: value }))}
+                  value={name}
+                  onValueChange = {handleNameChange}
+                //   onValueChange={(value) => setFormData(prev => ({ ...prev, name: value }))}
                   placeholder="이름을 입력하세요"
                   data-testid="register-name-input"
                 />
@@ -133,8 +143,9 @@ const Register = () => {
                   type="email"
                   required
                   disabled={loading}
-                  value={formData.email}
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, email: value }))}
+                  value={email}
+                  onValueChange={handleEmailChange}
+                //   onValueChange={(value) => setFormData(prev => ({ ...prev, email: value }))}
                   placeholder="이메일을 입력하세요"
                   data-testid="register-email-input"
                 />
@@ -156,8 +167,9 @@ const Register = () => {
                   type="password"
                   required
                   disabled={loading}
-                  value={formData.password}
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, password: value }))}
+                  value={password}
+                  onValueChange={handlePasswordChange}
+                //   onValueChange={(value) => setFormData(prev => ({ ...prev, password: value }))}
                   placeholder="비밀번호를 입력하세요"
                   pattern="(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[\W_]).{8,16}"
                   data-testid="register-password-input"
@@ -181,8 +193,9 @@ const Register = () => {
                   type="password"
                   required
                   disabled={loading}
-                  value={formData.confirmPassword}
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, confirmPassword: value }))}
+                  value={confirmPassword}
+                  onValueChange={handleConfirmPasswordChange}
+                //   onValueChange={(value) => setFormData(prev => ({ ...prev, confirmPassword: value }))}
                   placeholder="비밀번호를 다시 입력하세요"
                   data-testid="register-password-confirm-input"
                 />

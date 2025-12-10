@@ -35,6 +35,7 @@ const Profile = () => {
   const handleImageChange = useCallback(async (imageUrl) => {
     // ProfileImageUpload 컴포넌트에서 이미 업로드를 처리하므로
     // Context의 사용자 정보만 업데이트
+    console.log(imageUrl);
     updateUser({ profileImage: imageUrl });
   }, [updateUser]);
 
