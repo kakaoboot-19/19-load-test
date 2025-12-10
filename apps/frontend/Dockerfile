@@ -11,6 +11,15 @@ RUN npm i
 # 소스 코드 복사
 COPY . .
 
+# 외부에서 넣어주는 값을 받겠다고 선언 (ARG)
+ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_SOCKET_URL
+
+# 받은 값을 빌드 도중 사용할 수 있게 환경 변수로 설정 (ENV)
+# .env 파일보다 이 값이 우선순위 더 높음
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_SOCKET_URL=$NEXT_PUBLIC_SOCKET_URL
+
 # Next.js 빌드
 RUN npm run build
 
@@ -38,3 +47,4 @@ ENV PORT=3000
 ENV NODE_ENV=production
 
 CMD ["node", "server.js"]
+

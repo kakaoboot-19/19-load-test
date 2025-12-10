@@ -28,3 +28,25 @@ deploy:
 		echo "✅ Deployment to $$server completed!"; \
 	done
 	@echo "✅ All deployments completed!"
+
+
+DOCKER_USER ?= michael568
+IMAGE_NAME = ktb-chat-frontend
+TAG ?= latest
+# 실제 배포할 백엔드 주소
+PROD_API_URL ?= https://chat.goorm-ktb-019.goorm.team
+PROD_SOCKET_URL ?= https://chat.goorm-ktb-019.goorm.team
+
+docker-build:
+	docker build \
+		--platform linux/amd64 \
+		--build-arg NEXT_PUBLIC_API_URL=$(PROD_API_URL) \
+		--build-arg NEXT_PUBLIC_SOCKET_URL=$(PROD_SOCKET_URL) \
+		-t $(DOCKER_USER)/$(IMAGE_NAME):$(TAG) .
+
+docker-push:
+	docker push $(DOCKER_USER)/$(IMAGE_NAME):$(TAG)
+
+# 한 번에 실행: make docker-deploy
+docker-deploy: docker-build docker-push
+	@echo "이미지 배포 준비 완료. EC2에서 'docker pull ...' 후 실행하세요."
