@@ -329,6 +329,9 @@ const ChatInput = forwardRef(({
           return;
       }
     } else if (e.key === 'Enter' && !e.shiftKey) {
+        
+        if (e.nativeEvent.isComposing) return;
+
       e.preventDefault();
       if (message.trim() || files.length > 0) {
         handleSubmit(e);
