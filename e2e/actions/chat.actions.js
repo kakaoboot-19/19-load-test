@@ -32,7 +32,7 @@ async function joinRandomChatRoomAction(page) {
  * @param {string} roomId - 채팅방 ID
  */
 async function joinChatRoomByIdAction(page, roomId) {
-  await page.goto(`${BASE_URL}/chat/${roomId}`);
+  await page.goto(`${BASE_URL}/chat/room?room=${roomId}`);
 }
 
 /**
@@ -44,7 +44,7 @@ async function createChatRoomAction(page, roomName) {
   await page.goto(`${BASE_URL}/chat/new`);
   await page.getByTestId('chat-room-name-input').fill(roomName);
   await page.getByTestId('create-chat-room-button').click();
-  await page.waitForURL(new RegExp(`${BASE_URL}/chat/[a-f0-9]{24}`));
+  await page.waitForURL(new RegExp(`${BASE_URL}/chat/room\\?room=[a-f0-9]{24}`));
 }
 
 /**

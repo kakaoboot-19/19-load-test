@@ -71,7 +71,7 @@ test.describe.serial('채팅 E2E 테스트', () => {
       await createChatRoomAction(page, roomName);
 
       // 검증
-      await expect(page).toHaveURL(new RegExp(`${BASE_URL}/chat/\\w+`));
+      await expect(page).toHaveURL(new RegExp(`${BASE_URL}/chat/room\\?room=\\w+`));
       await expect(page.getByTestId('chat-message-input')).toBeVisible();
       await expect(page.getByTestId('chat-messages-container')).toBeVisible();
     });
@@ -81,7 +81,7 @@ test.describe.serial('채팅 E2E 테스트', () => {
       await joinFirstChatRoomAction(page);
 
       // 검증
-      await expect(page).toHaveURL(new RegExp(`${BASE_URL}/chat/\\w+`));
+      await expect(page).toHaveURL(new RegExp(`${BASE_URL}/chat/room\\?room=\\w+`));
       await expect(page.getByTestId('chat-message-input')).toBeVisible();
       await expect(page.getByTestId('chat-messages-container')).toBeVisible();
     });
