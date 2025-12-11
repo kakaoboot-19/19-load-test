@@ -121,7 +121,7 @@ public class S3FileService implements FileService {
             log.info("S3 파일 저장 완료: {}", key);
 
             // API 경로 또는 CDN URL 반환할 수 있음
-            return key;
+            return "/" + key;
 
         } catch (IOException e) {
             throw new RuntimeException("storeFile 실패: " + e.getMessage(), e);
