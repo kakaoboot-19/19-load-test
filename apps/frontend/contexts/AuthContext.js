@@ -121,30 +121,30 @@ export const AuthProvider = ({ children }) => {
   }, [loadUserFromStorage]);
 
   // 로그인 (API 호출 + 상태 저장)
-  const login = useCallback(async (credentials) => {
-    const userData = await authService.login(credentials);
-    saveUser(userData);
-    return userData;
-  }, [saveUser]);
+  const login = useCallback(
+    async (credentials) => {
+      const userData = await authService.login(credentials);
+      saveUser(userData);
+      return userData;
+    },
+    [saveUser]
+  );
 
   // 로그아웃 (API 호출 + 상태 정리)
-  const logout = useCallback(async () => {
-    try {
-      // authService를 통해 로그아웃 API 호출
-      await authService.logout(user?.token, user?.sessionId);
-    } catch (error) {
-      console.error('Logout error:', error);
-    } finally {
-      // 소켓 연결 해제
-      socketService.disconnect();
-
-      // 로컬 상태 정리
-      saveUser(null);
-
-      // 로그인 페이지로 이동
-      router.push('/');
-    }
-  }, [user, saveUser, router]);
+  const logout = useCallback(
+    async () => {
+      try {
+        await authService.logout(user?.token, user?.sessionId);
+      } catch (error) {
+        console.error('Logout error:', error);
+      } finally {
+        socketService.disconnect();
+        saveUser(null);
+        router.push('/');
+      }
+    },
+    [user, saveUser, router]
+  );
 
   // 회원가입
   const register = useCallback(async (userData) => {
@@ -153,127 +153,140 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   // 프로필 업데이트 (API 호출 + 상태 저장)
-  const updateProfile = useCallback(async (updates) => {
-    if (!user) return;
+  const updateProfile = useCallback(
+    async (updates) => {
+      if (!user) return;
 
-    const updatedUserData = await authService.updateProfile(
-      updates,
-      user.token,
-      user.sessionId
-    );
+      const updatedUserData = await authService.updateProfile(
+        updates,
+        user.token,
+        user.sessionId
+      );
 
-    const updatedUser = {
-      ...user,
-      ...updatedUserData,
-      token: user.token,
-      sessionId: user.sessionId,
-      lastActivity: Date.now()
-    };
+      const updatedUser = {
+        ...user,
+        ...updatedUserData,
+        token: user.token,
+        sessionId: user.sessionId,
+        lastActivity: Date.now()
+      };
 
-    saveUser(updatedUser);
-    return updatedUser;
-  }, [user, saveUser]);
+      saveUser(updatedUser);
+      return updatedUser;
+    },
+    [user, saveUser]
+  );
 
   // 사용자 정보 직접 업데이트 (외부에서 사용)
-  const updateUser = useCallback((userData) => {
-    if (!userData) {
-      saveUser(null);
-      return;
-    }
+  const updateUser = useCallback(
+    (userData) => {
+      if (!userData) {
+        saveUser(null);
+        return;
+      }
 
-    const updatedUser = {
-      ...user,
-      ...userData,
-      lastActivity: Date.now()
-    };
+      const updatedUser = {
+        ...user,
+        ...userData,
+        lastActivity: Date.now()
+      };
 
-    saveUser(updatedUser);
-  }, [user, saveUser]);
+      saveUser(updatedUser);
+    },
+    [user, saveUser]
+  );
 
   // 토큰 검증
-  const verifyToken = useCallback(async () => {
-    try {
-      if (!user?.token || !user?.sessionId) {
-        throw new Error('No authentication data found');
-      }
+  const verifyToken = useCallback(
+    async () => {
+      try {
+        if (!user?.token || !user?.sessionId) {
+          throw new Error('No authentication data found');
+        }
 
-      // 마지막 검증 시간 확인
-      const lastVerification = localStorage.getItem('lastTokenVerification');
-      if (lastVerification && Date.now() - parseInt(lastVerification) < TOKEN_VERIFICATION_INTERVAL) {
-        return true;
-      }
+        const lastVerification = localStorage.getItem('lastTokenVerification');
+        if (
+          lastVerification &&
+          Date.now() - parseInt(lastVerification, 10) < TOKEN_VERIFICATION_INTERVAL
+        ) {
+          return true;
+        }
 
-      // authService를 통해 토큰 검증 (API 호출)
-      const API_URL = process.env.NEXT_PUBLIC_API_URL;
-      const response = await fetch(`${API_URL}/api/auth/verify-token`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-auth-token': user.token,
-          'x-session-id': user.sessionId
-        },
-        credentials: 'include'
-      });
+        const API_URL = process.env.NEXT_PUBLIC_API_URL;
+        const response = await fetch(`${API_URL}/api/auth/verify-token`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-auth-token': user.token,
+            'x-session-id': user.sessionId
+          },
+          credentials: 'include'
+        });
 
-      const data = await response.json();
+        const data = await response.json();
 
-      if (data.success) {
-        localStorage.setItem('lastTokenVerification', Date.now().toString());
-        return true;
-      }
-
-      throw new Error(data.message || '토큰 검증에 실패했습니다.');
-    } catch (error) {
-      if (error.response?.status === 401) {
-        try {
-          await refreshToken();
+        if (data.success) {
           localStorage.setItem('lastTokenVerification', Date.now().toString());
           return true;
-        } catch (refreshError) {
-          await logout();
-          throw new Error('세션이 만료되었습니다. 다시 로그인해주세요.');
         }
+
+        throw new Error(data.message || '토큰 검증에 실패했습니다.');
+      } catch (error) {
+        if (error.response?.status === 401) {
+          try {
+            await refreshToken();
+            localStorage.setItem('lastTokenVerification', Date.now().toString());
+            return true;
+          } catch (refreshError) {
+            await logout();
+            throw new Error('세션이 만료되었습니다. 다시 로그인해주세요.');
+          }
+        }
+        throw error;
       }
-      throw error;
-    }
-  }, [user]);
+    },
+    [user]
+  );
 
   // 토큰 갱신
-  const refreshToken = useCallback(async () => {
-    try {
-      if (!user?.token) {
-        throw new Error('인증 정보가 없습니다.');
+  const refreshToken = useCallback(
+    async () => {
+      try {
+        if (!user?.token) {
+          throw new Error('인증 정보가 없습니다.');
+        }
+
+        const API_URL = process.env.NEXT_PUBLIC_API_URL;
+        const response = await fetch(`${API_URL}/api/auth/refresh-token`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-auth-token': user.token,
+            'x-session-id': user.sessionId
+          },
+          credentials: 'include'
+        });
+
+        const data = await response.json();
+
+        if (data.success && data.token) {
+          const updatedUser = {
+            ...user,
+            token: data.token,
+            lastActivity: Date.now()
+          };
+          saveUser(updatedUser);
+          return data.token;
+        }
+
+        throw new Error('토큰 갱신에 실패했습니다.');
+      } catch (error) {
+        console.error('Token refresh error:', error);
+        throw error;
       }
-
-      const API_URL = process.env.NEXT_PUBLIC_API_URL;
-      const response = await fetch(`${API_URL}/api/auth/refresh-token`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-auth-token': user.token,
-          'x-session-id': user.sessionId
-        },
-        credentials: 'include'
-      });
-
-      const data = await response.json();
-
-      if (data.success && data.token) {
-        const updatedUser = {
-          ...user,
-          token: data.token,
-          lastActivity: Date.now()
-        };
-        saveUser(updatedUser);
-        return data.token;
-      }
-
-      throw new Error('토큰 갱신에 실패했습니다.');
-    } catch (error) {
-      console.error('Token refresh error:', error);
-      throw error;
-    }
-  }, [user, saveUser]);
+    },
+    [user, saveUser]
+  );
 
   const value = {
     user,
@@ -288,18 +301,11 @@ export const AuthProvider = ({ children }) => {
     refreshToken
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
 /**
  * withAuth HOC - 인증이 필요한 페이지를 보호
- *
- * AuthContext를 사용하여 인증 상태를 확인하고,
- * 인증되지 않은 사용자를 로그인 페이지로 리다이렉트
  */
 export const withAuth = (WrappedComponent) => {
   const WithAuthComponent = (props) => {
@@ -307,23 +313,23 @@ export const withAuth = (WrappedComponent) => {
     const { isAuthenticated, isLoading } = useAuth();
 
     useEffect(() => {
-      // 로딩이 끝나고 인증되지 않은 경우 리다이렉트
       if (!isLoading && !isAuthenticated) {
         router.replace('/?redirect=' + router.asPath);
       }
     }, [isAuthenticated, isLoading, router]);
 
-    // 로딩 중이거나 인증되지 않은 경우 로딩 화면 표시
     if (isLoading || !isAuthenticated) {
       return (
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          height: '100vh',
-          backgroundColor: 'var(--vapor-color-background)',
-          color: 'var(--vapor-color-text-primary)'
-        }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            height: '100vh',
+            backgroundColor: 'var(--vapor-color-background)',
+            color: 'var(--vapor-color-text-primary)'
+          }}
+        >
           <div>Loading...</div>
         </div>
       );
@@ -332,8 +338,8 @@ export const withAuth = (WrappedComponent) => {
     return <WrappedComponent {...props} />;
   };
 
-  // HOC에 displayName 설정
-  const displayName = WrappedComponent.displayName || WrappedComponent.name || 'Component';
+  const displayName =
+    WrappedComponent.displayName || WrappedComponent.name || 'Component';
   WithAuthComponent.displayName = `WithAuth(${displayName})`;
 
   return WithAuthComponent;
@@ -350,33 +356,17 @@ export const withoutAuth = (WrappedComponent) => {
     const { isAuthenticated, isLoading } = useAuth();
 
     useEffect(() => {
-      // 라우터가 준비되고 로딩이 끝났을 때
-      if (router.isReady && !isLoading && isAuthenticated) {
-        // 이미 로그인된 사용자는 채팅 페이지로 리다이렉트
+      if (!isLoading && isAuthenticated) {
         router.replace('/chat');
       }
-    }, [isAuthenticated, isLoading, router, router.isReady]);
+    }, [isAuthenticated, isLoading, router]);
 
-    // 로딩 중이거나 이미 로그인된 사용자인 경우 로딩 화면
-    if (isLoading || isAuthenticated) {
-      return (
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          height: '100vh',
-          backgroundColor: 'var(--vapor-color-background)',
-          color: 'var(--vapor-color-text-primary)'
-        }}>
-          <div>Loading...</div>
-        </div>
-      );
-    }
-
+    // ⭐ 항상 같은 JSX: SSR이든 CSR이든 무조건 WrappedComponent만 반환
     return <WrappedComponent {...props} />;
   };
 
-  const displayName = WrappedComponent.displayName || WrappedComponent.name || 'Component';
+  const displayName =
+    WrappedComponent.displayName || WrappedComponent.name || 'Component';
   WithoutAuthComponent.displayName = `WithoutAuth(${displayName})`;
 
   return WithoutAuthComponent;

@@ -23,25 +23,19 @@ const Login = () => {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
   const [serverStatus, setServerStatus] = useState({
-    checking: typeof window !== 'undefined', // 클라이언트에서만 체크
-    connected: false
+    checking: true,
+    connected: true, // 버튼 비활성화를 피하고 싶으면 true로 시작
   });
   const router = useRouter();
   const { login } = useAuth();
 
   // 서버 연결 상태 확인
   useEffect(() => {
-    // 클라이언트 사이드에서만 실행되도록 보장
-    if (typeof window === 'undefined') {
-      return;
-    }
-
     const checkServerConnection = async () => {
       try {
         await authService.checkServerConnection();
         setServerStatus({ checking: false, connected: true });
       } catch (error) {
-
         // 개발 환경에서는 더 관대하게 처리
         if (process.env.NODE_ENV === 'development') {
           setServerStatus({ checking: false, connected: true });
