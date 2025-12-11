@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component;
  * MongoDB implementation of SessionStore.
  * Uses SessionRepository for persistence.
  */
-@Component
+// @Component
 @RequiredArgsConstructor
 public class SessionMongoStore implements SessionStore {
     
