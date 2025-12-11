@@ -19,6 +19,7 @@ import com.ktb.chatapp.service.SessionService;
 import com.ktb.chatapp.service.SessionValidationResult;
 import com.ktb.chatapp.service.RateLimitService;
 import com.ktb.chatapp.service.RateLimitCheckResult;
+import com.ktb.chatapp.service.RoomService;
 import com.ktb.chatapp.websocket.socketio.SocketUser;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -40,6 +41,7 @@ import static com.ktb.chatapp.websocket.socketio.SocketIOEvents.*;
 public class ChatMessageHandler {
     private final SocketIOServer socketIOServer;
     private final MessageRepository messageRepository;
+    private final RoomService roomService;
     private final RoomRepository roomRepository;
     private final UserRepository userRepository;
     private final FileRepository fileRepository;
@@ -160,6 +162,9 @@ public class ChatMessageHandler {
             }
 
             Message savedMessage = messageRepository.save(message);
+
+            // ★ Redis recentMessageCount 카운터 증가
+            roomService.incrementRecentMessageCount(roomId);
 
             socketIOServer.getRoomOperations(roomId)
                     .sendEvent(MESSAGE, createMessageResponse(savedMessage, sender));
