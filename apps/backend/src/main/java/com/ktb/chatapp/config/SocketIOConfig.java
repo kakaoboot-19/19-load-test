@@ -33,7 +33,6 @@ public class SocketIOConfig {
 
     private final RedisTemplate<String, Object> redisTemplate;
 
-    // 🔹 선택 의존성(옵셔널) – 클러스터 모드에서만 필요
     @Autowired(required = false)
     private RedissonClient redissonClient;
 
@@ -43,12 +42,11 @@ public class SocketIOConfig {
     @Value("${socketio.server.port:5002}")
     private Integer port;
 
-    // local | redis  (ChatDataStore 타입 선택용)
     @Value("${chat.store.type:local}")
     private String chatStoreType;
 
-    // Socket.IO 클러스터 on/off
-    @Value("${socketio.cluster.enabled:false}")
+    // ✅ e2e 통과 목적: 기본값 true로 권장 (properties에서 명시해도 됨)
+    @Value("${socketio.cluster.enabled:true}")
     private boolean clusterEnabled;
 
     public SocketIOConfig(RedisTemplate<String, Object> redisTemplate) {
@@ -65,39 +63,36 @@ public class SocketIOConfig {
 
         SocketConfig socketConfig = new SocketConfig();
         socketConfig.setReuseAddress(true);
-        socketConfig.setTcpNoDelay(false);
-        socketConfig.setAcceptBackLog(10);
-        socketConfig.setTcpSendBufferSize(4096);
-        socketConfig.setTcpReceiveBufferSize(4096);
+        socketConfig.setTcpNoDelay(true); // ✅ 채팅은 지연 줄이기
+        socketConfig.setAcceptBackLog(1024); // ✅ 동시 접속 여유
+        socketConfig.setTcpSendBufferSize(1 << 20);
+        socketConfig.setTcpReceiveBufferSize(1 << 20);
         config.setSocketConfig(socketConfig);
 
         config.setOrigin("*");
 
-        // Socket.IO settings
         config.setPingTimeout(60000);
         config.setPingInterval(25000);
         config.setUpgradeTimeout(10000);
 
         config.setJsonSupport(new JacksonJsonSupport(new JavaTimeModule()));
 
-        // 🔹 클러스터 설정에 따라 StoreFactory 결정
+        // ✅ 여기 핵심: 멀티 인스턴스에서 room/broadcast 공유
         if (clusterEnabled) {
-            if (redissonClient == null) {
-                log.warn("socketio.cluster.enabled=true 이지만 RedissonClient 빈이 없음 → MemoryStoreFactory로 fallback");
-                config.setStoreFactory(new MemoryStoreFactory());
-            } else {
-                log.info("Socket.IO StoreFactory: RedissonStoreFactory 사용 (클러스터 / 다중 인스턴스 모드)");
+            if (redissonClient != null) {
+                log.info("Socket.IO StoreFactory: RedissonStoreFactory (clusterEnabled=true)");
                 config.setStoreFactory(new RedissonStoreFactory(redissonClient));
+            } else {
+                log.warn("clusterEnabled=true 이지만 RedissonClient 빈이 없음 → MemoryStoreFactory fallback (다자간 e2e 깨질 수 있음)");
+                config.setStoreFactory(new MemoryStoreFactory());
             }
         } else {
-            log.info("Socket.IO StoreFactory: MemoryStoreFactory 사용 (단일 인스턴스 모드)");
+            // e2e 다자간이면 사실상 여기 오면 안 됨
+            log.warn("Socket.IO StoreFactory: MemoryStoreFactory (clusterEnabled=false) - 멀티 인스턴스에서 다자간 e2e 실패 가능");
             config.setStoreFactory(new MemoryStoreFactory());
         }
 
-        log.info(
-                "Socket.IO server configured on {}:{} with {} boss threads and {} worker threads (clusterEnabled={})",
-                host, port, config.getBossThreads(), config.getWorkerThreads(), clusterEnabled
-        );
+        log.info("Socket.IO server configured on {}:{} (clusterEnabled={})", host, port, clusterEnabled);
 
         SocketIOServer socketIOServer = new SocketIOServer(config);
         socketIOServer.getNamespace(Namespace.DEFAULT_NAME)
@@ -106,31 +101,19 @@ public class SocketIOConfig {
         return socketIOServer;
     }
 
-    /**
-     * SpringAnnotationScanner는 BeanPostProcessor로서
-     * ApplicationContext 초기화 초기에 등록되고,
-     * 내부에서 사용하는 SocketIOServer는 Lazy로 지연되어
-     * 다른 Bean들의 초기화 과정에 간섭하지 않게 한다.
-     */
     @Bean
     @Role(ROLE_INFRASTRUCTURE)
     public BeanPostProcessor springAnnotationScanner(@Lazy SocketIOServer socketIOServer) {
         return new SpringAnnotationScanner(socketIOServer);
     }
 
-    /**
-     * ChatDataStore 구현 선택
-     * - chat.store.type=redis  → RedisChatDataStore (다중 인스턴스 간 상태 공유)
-     * - 그 외 / 기본값         → LocalChatDataStore (단일 인스턴스 인메모리)
-     */
     @Bean
     public ChatDataStore chatDataStore() {
         if ("redis".equalsIgnoreCase(chatStoreType)) {
-            log.info("ChatDataStore: RedisChatDataStore 사용 (다중 인스턴스 간 상태 공유)");
+            log.info("ChatDataStore: RedisChatDataStore");
             return new RedisChatDataStore(redisTemplate);
-        } else {
-            log.info("ChatDataStore: LocalChatDataStore 사용 (단일 인스턴스 인메모리)");
-            return new LocalChatDataStore();
         }
+        log.info("ChatDataStore: LocalChatDataStore");
+        return new LocalChatDataStore();
     }
 }
