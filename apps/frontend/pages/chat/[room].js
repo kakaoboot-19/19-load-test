@@ -222,3 +222,15 @@ const ChatPage = () => {
 };
 
 export default withAuth(ChatPage);
+
+// 정적 페이지 선언 (빌드 시점에 HTML로 컴파일 되려면 필요)
+export async function getStaticPaths() {
+  return {
+    paths: [],
+    fallback: false
+  };
+}
+
+export async function getStaticProps() {
+  return { props: {} };
+}
