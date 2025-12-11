@@ -2,6 +2,7 @@ package com.ktb.chatapp.config;
 
 import java.util.Map;
 import java.util.HashMap;
+import java.util.Arrays;
 
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.PropertyAccessor;
@@ -18,9 +19,11 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
 import org.springframework.data.redis.cache.RedisCacheManager;
 
-import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
+import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
+import org.springframework.data.redis.connection.RedisSentinelConfiguration;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
+import org.springframework.data.redis.connection.lettuce.LettuceClientConfiguration;
 
 import org.springframework.data.redis.core.RedisTemplate;
 
@@ -28,12 +31,22 @@ import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSeriali
 import org.springframework.data.redis.serializer.RedisSerializationContext;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 
+import io.lettuce.core.ReadFrom;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Configuration
 @EnableCaching
 public class RedisConfig {
 
-    // 💡 배포 환경에서 적용될 값
+    // Sentinel 모드 설정
+    @Value("${REDIS_SENTINEL_MASTER:}")
+    private String sentinelMaster;
+
+    @Value("${REDIS_SENTINEL_NODES:}")
+    private String sentinelNodes;
+
+    // Standalone 모드 설정 (로컬 개발용)
     @Value("${REDIS_HOST:localhost}")
     private String redisHost;
 
@@ -45,7 +58,50 @@ public class RedisConfig {
 
     @Bean
     public RedisConnectionFactory redisConnectionFactory() {
+        // Sentinel 모드 체크
+        if (sentinelMaster != null && !sentinelMaster.isEmpty()
+                && sentinelNodes != null && !sentinelNodes.isEmpty()) {
 
+            log.info("Redis Sentinel 모드로 연결합니다");
+            log.info("Master: {}, Nodes: {}", sentinelMaster, sentinelNodes);
+
+            return createSentinelConnectionFactory();
+        } else {
+            log.info("Redis Standalone 모드로 연결합니다");
+            log.info("Host: {}, Port: {}", redisHost, redisPort);
+
+            return createStandaloneConnectionFactory();
+        }
+    }
+
+    /**
+     * Sentinel 모드 연결
+     */
+    private RedisConnectionFactory createSentinelConnectionFactory() {
+        RedisSentinelConfiguration sentinelConfig = new RedisSentinelConfiguration()
+                .master(sentinelMaster);
+
+        // Sentinel 노드 추가
+        Arrays.stream(sentinelNodes.split(","))
+                .map(node -> node.split(":"))
+                .forEach(parts -> sentinelConfig.sentinel(parts[0].trim(), Integer.parseInt(parts[1].trim())));
+
+        if (redisPassword != null && !redisPassword.isEmpty()) {
+            sentinelConfig.setPassword(redisPassword);
+        }
+
+        // Replica 우선 읽기 (읽기 부하 분산)
+        LettuceClientConfiguration clientConfig = LettuceClientConfiguration.builder()
+                .readFrom(ReadFrom.REPLICA_PREFERRED)
+                .build();
+
+        return new LettuceConnectionFactory(sentinelConfig, clientConfig);
+    }
+
+    /**
+     * Standalone 모드 연결 (로컬 개발용)
+     */
+    private RedisConnectionFactory createStandaloneConnectionFactory() {
         RedisStandaloneConfiguration config = new RedisStandaloneConfiguration();
         config.setHostName(redisHost);
         config.setPort(redisPort);
@@ -76,7 +132,6 @@ public class RedisConfig {
 
     @Bean
     public CacheManager cacheManager(RedisConnectionFactory connectionFactory) {
-
         RedisCacheConfiguration defaultConfig = RedisCacheConfiguration.defaultCacheConfig()
                 .serializeKeysWith(
                         RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer())
@@ -87,19 +142,12 @@ public class RedisConfig {
                         )
                 )
                 .disableCachingNullValues()
-                .entryTtl(Duration.ofMinutes(5)); // 기본 TTL
+                .entryTtl(Duration.ofMinutes(5));
 
-        // 캐시 이름별 개별 설정
         Map<String, RedisCacheConfiguration> cacheConfigs = new HashMap<>();
-
-        cacheConfigs.put("userById",
-                defaultConfig.entryTtl(Duration.ofMinutes(10)));
-
-        cacheConfigs.put("roomById",
-                defaultConfig.entryTtl(Duration.ofMinutes(5)));
-
-        cacheConfigs.put("recentMessageCount",
-                defaultConfig.entryTtl(Duration.ofSeconds(90)));
+        cacheConfigs.put("userById", defaultConfig.entryTtl(Duration.ofMinutes(10)));
+        cacheConfigs.put("roomById", defaultConfig.entryTtl(Duration.ofMinutes(5)));
+        cacheConfigs.put("recentMessageCount", defaultConfig.entryTtl(Duration.ofSeconds(90)));
 
         return RedisCacheManager.builder(connectionFactory)
                 .cacheDefaults(defaultConfig)
