@@ -149,6 +149,8 @@ public class RedisConfig {
         cacheConfigs.put("roomById", defaultConfig.entryTtl(Duration.ofMinutes(5)));
         cacheConfigs.put("recentMessageCount", defaultConfig.entryTtl(Duration.ofSeconds(90)));
 
+        cacheConfigs.put("fileByName", defaultConfig.entryTtl(Duration.ofHours(1)));
+
         return RedisCacheManager.builder(connectionFactory)
                 .cacheDefaults(defaultConfig)
                 .withInitialCacheConfigurations(cacheConfigs)
