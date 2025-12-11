@@ -7,9 +7,13 @@ import java.util.Arrays;
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
 import java.time.Duration;
 
+import org.redisson.Redisson;
+import org.redisson.api.RedissonClient;
+import org.redisson.config.Config;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
@@ -39,14 +43,12 @@ import lombok.extern.slf4j.Slf4j;
 @EnableCaching
 public class RedisConfig {
 
-    // Sentinel 모드 설정
     @Value("${REDIS_SENTINEL_MASTER:}")
     private String sentinelMaster;
 
     @Value("${REDIS_SENTINEL_NODES:}")
     private String sentinelNodes;
 
-    // Standalone 모드 설정 (로컬 개발용)
     @Value("${REDIS_HOST:localhost}")
     private String redisHost;
 
@@ -58,7 +60,7 @@ public class RedisConfig {
 
     @Bean
     public RedisConnectionFactory redisConnectionFactory() {
-        // Sentinel 모드 체크
+
         if (sentinelMaster != null && !sentinelMaster.isEmpty()
                 && sentinelNodes != null && !sentinelNodes.isEmpty()) {
 
@@ -81,7 +83,6 @@ public class RedisConfig {
         RedisSentinelConfiguration sentinelConfig = new RedisSentinelConfiguration()
                 .master(sentinelMaster);
 
-        // Sentinel 노드 추가
         Arrays.stream(sentinelNodes.split(","))
                 .map(node -> node.split(":"))
                 .forEach(parts -> sentinelConfig.sentinel(parts[0].trim(), Integer.parseInt(parts[1].trim())));
@@ -90,7 +91,6 @@ public class RedisConfig {
             sentinelConfig.setPassword(redisPassword);
         }
 
-        // Replica 우선 읽기 (읽기 부하 분산)
         LettuceClientConfiguration clientConfig = LettuceClientConfiguration.builder()
                 .readFrom(ReadFrom.REPLICA_PREFERRED)
                 .build();
@@ -130,6 +130,37 @@ public class RedisConfig {
         return template;
     }
 
+    @Bean(destroyMethod = "shutdown")
+    public RedissonClient redissonClient() {
+        Config config = new Config();
+        
+        if (sentinelMaster != null && !sentinelMaster.isEmpty()
+                && sentinelNodes != null && !sentinelNodes.isEmpty()) {
+            // Sentinel 모드
+            String[] nodes = Arrays.stream(sentinelNodes.split(","))
+                    .map(node -> "redis://" + node.trim())
+                    .toArray(String[]::new);
+
+            config.useSentinelServers()
+                    .setMasterName(sentinelMaster)
+                    .addSentinelAddress(nodes);
+            
+            if (redisPassword != null && !redisPassword.isEmpty()) {
+                config.useSentinelServers().setPassword(redisPassword);
+            }
+        } else {
+            // Standalone 모드
+            String address = "redis://" + redisHost + ":" + redisPort;
+            config.useSingleServer().setAddress(address);
+            
+            if (redisPassword != null && !redisPassword.isEmpty()) {
+                config.useSingleServer().setPassword(redisPassword);
+            }
+        }
+        
+        return Redisson.create(config);
+    }
+
     @Bean
     public CacheManager cacheManager(RedisConnectionFactory connectionFactory) {
         RedisCacheConfiguration defaultConfig = RedisCacheConfiguration.defaultCacheConfig()
@@ -160,6 +191,7 @@ public class RedisConfig {
     private ObjectMapper objectMapper() {
         ObjectMapper om = new ObjectMapper();
         om.setVisibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.ANY);
+        om.registerModule(new JavaTimeModule());
         return om;
     }
 }

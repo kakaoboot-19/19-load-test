@@ -1,11 +1,21 @@
 package com.ktb.chatapp.websocket.socketio;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
 /**
- * Socket User Record
- * @param id user id
- * @param name user name
- * @param authSessionId user auth session id
- * @param socketId user websocket session id
+ * Socket User Data Object
+ * Converted from record to POJO for better Redis serialization support.
  */
-public record SocketUser(String id, String name, String authSessionId, String socketId) {
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class SocketUser {
+    private String id;
+    private String name;
+    private String authSessionId;
+    private String socketId;
 }
