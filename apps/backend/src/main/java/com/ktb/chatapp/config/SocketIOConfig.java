@@ -6,11 +6,12 @@ import com.corundumstudio.socketio.SocketIOServer;
 import com.corundumstudio.socketio.annotation.SpringAnnotationScanner;
 import com.corundumstudio.socketio.namespace.Namespace;
 import com.corundumstudio.socketio.protocol.JacksonJsonSupport;
-import com.corundumstudio.socketio.store.MemoryStoreFactory;
+import com.corundumstudio.socketio.store.RedissonStoreFactory;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.ktb.chatapp.websocket.socketio.ChatDataStore;
-import com.ktb.chatapp.websocket.socketio.LocalChatDataStore;
+import com.ktb.chatapp.websocket.socketio.RedisChatDataStore;
 import lombok.extern.slf4j.Slf4j;
+import org.redisson.api.RedissonClient;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -18,6 +19,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.context.annotation.Role;
+import org.springframework.data.redis.core.RedisTemplate;
 
 import static org.springframework.beans.factory.config.BeanDefinition.ROLE_INFRASTRUCTURE;
 
@@ -33,7 +35,7 @@ public class SocketIOConfig {
     private Integer port;
 
     @Bean(initMethod = "start", destroyMethod = "stop")
-    public SocketIOServer socketIOServer(AuthTokenListener authTokenListener) {
+    public SocketIOServer socketIOServer(AuthTokenListener authTokenListener, RedissonClient redissonClient) {
         com.corundumstudio.socketio.Configuration config = new com.corundumstudio.socketio.Configuration();
         config.setHostname(host);
         config.setPort(port);
@@ -54,7 +56,9 @@ public class SocketIOConfig {
         config.setUpgradeTimeout(10000);
 
         config.setJsonSupport(new JacksonJsonSupport(new JavaTimeModule()));
-        config.setStoreFactory(new MemoryStoreFactory()); // 단일노드 전용
+        
+        // Use RedissonStoreFactory for multi-instance support (Redis Pub/Sub)
+        config.setStoreFactory(new RedissonStoreFactory(redissonClient));
 
         log.info("Socket.IO server configured on {}:{} with {} boss threads and {} worker threads",
                  host, port, config.getBossThreads(), config.getWorkerThreads());
@@ -76,10 +80,10 @@ public class SocketIOConfig {
         return new SpringAnnotationScanner(socketIOServer);
     }
     
-    // 인메모리 저장소, 단일 노드 환경에서만 사용
+    // Redis 기반 저장소, 멀티 인스턴스 환경 지원
     @Bean
     @ConditionalOnProperty(name = "socketio.enabled", havingValue = "true", matchIfMissing = true)
-    public ChatDataStore chatDataStore() {
-        return new LocalChatDataStore();
+    public ChatDataStore chatDataStore(RedisTemplate<String, Object> redisTemplate) {
+        return new RedisChatDataStore(redisTemplate);
     }
 }

@@ -11,6 +11,9 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule; // Added import
 
 import java.time.Duration;
 
+import org.redisson.Redisson;
+import org.redisson.api.RedissonClient;
+import org.redisson.config.Config;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
@@ -129,6 +132,37 @@ public class RedisConfig {
 
         template.afterPropertiesSet();
         return template;
+    }
+
+    @Bean(destroyMethod = "shutdown")
+    public RedissonClient redissonClient() {
+        Config config = new Config();
+        
+        if (sentinelMaster != null && !sentinelMaster.isEmpty()
+                && sentinelNodes != null && !sentinelNodes.isEmpty()) {
+            // Sentinel 모드
+            String[] nodes = Arrays.stream(sentinelNodes.split(","))
+                    .map(node -> "redis://" + node.trim())
+                    .toArray(String[]::new);
+
+            config.useSentinelServers()
+                    .setMasterName(sentinelMaster)
+                    .addSentinelAddress(nodes);
+            
+            if (redisPassword != null && !redisPassword.isEmpty()) {
+                config.useSentinelServers().setPassword(redisPassword);
+            }
+        } else {
+            // Standalone 모드
+            String address = "redis://" + redisHost + ":" + redisPort;
+            config.useSingleServer().setAddress(address);
+            
+            if (redisPassword != null && !redisPassword.isEmpty()) {
+                config.useSingleServer().setPassword(redisPassword);
+            }
+        }
+        
+        return Redisson.create(config);
     }
 
     @Bean
