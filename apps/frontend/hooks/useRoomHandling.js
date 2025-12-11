@@ -349,7 +349,7 @@ export const useRoomHandling = (
           });
 
         // 2. Fetch Room Data
-        const roomData = await fetchRoomData(router.query.room || router.query.id);
+        const roomData = await fetchRoomData(router.query.room);
         
         // Ensure current user is included in participants for display
         if (currentUser && roomData.participants) {
@@ -379,9 +379,9 @@ export const useRoomHandling = (
 
         // 4. Join Room and Load Messages
         if (mountedRef.current && socketRef.current?.connected) {
-          await joinRoom(router.query.room || router.query.id);
+          await joinRoom(router.query.room);
 
-          await loadInitialMessages(router.query.room || router.query.id);
+          await loadInitialMessages(router.query.room);
         }
 
         if (mountedRef.current) {
@@ -420,7 +420,6 @@ export const useRoomHandling = (
     return setupPromiseRef.current;
   }, [
     router.query.room,
-    router.query.id,
     socketRef,
     mountedRef,
     setupSocket,
