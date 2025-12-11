@@ -21,7 +21,6 @@ public class ChatRoomJoinHandler {
                 return;
             }
 
-            // (선택) 인증이 꼭 필요하다면:
             SocketUser socketUser = (SocketUser) client.get("user");
             if (socketUser == null) {
                 client.sendEvent("joinRoomError", Map.of("message", "세션이 만료되었습니다."));
@@ -30,6 +29,10 @@ public class ChatRoomJoinHandler {
 
             client.joinRoom(roomId);
 
+            // ✅ 요청한 로그 추가 (socket, roomId만)
+            log.info("joinRoomSuccess socket={}, roomId={}", client.getSessionId(), roomId);
+
+            // (기존 로그 유지 - 필요없으면 지워도 됨)
             log.info("joinRoomSuccess socket={}, userId={}, roomId={}",
                     client.getSessionId(), socketUser.id(), roomId);
 
