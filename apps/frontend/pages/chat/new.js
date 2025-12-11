@@ -26,6 +26,8 @@ function NewChatRoom() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // 다른 곳에서 쓸 수도 있으니 일단 남겨두지만,
+  // 새 방 생성 후에는 바로 /chat/{roomId}로 라우팅하고 이 함수는 사용하지 않음
   const joinRoom = async (roomId, password) => {
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/rooms/${roomId}/join`, {
@@ -93,8 +95,22 @@ function NewChatRoom() {
         throw new Error(errorData.message || '채팅방 생성에 실패했습니다.');
       }
 
-      const { data } = await response.json();
-      await joinRoom(data._id, formData.hasPassword ? formData.password : undefined);
+      const json = await response.json();
+
+      // 백엔드 계약: { success: boolean, data: RoomResponse }
+      if (!json.success || !json.data || !json.data._id) {
+        console.error('Unexpected room create response:', json);
+        throw new Error('서버로부터 올바른 채팅방 정보를 받지 못했습니다.');
+      }
+
+      const roomId = json.data._id;
+
+      // creator는 이미 participantIds에 포함되어 있으므로
+      // 별도의 /join API 호출 없이 바로 채팅방 페이지로 이동
+      router.push(`/chat/${roomId}`);
+
+      // 만약 HTTP join을 꼭 태우고 싶으면 위 대신 아래처럼도 가능:
+      // await joinRoom(roomId, formData.hasPassword ? formData.password : undefined);
 
     } catch (error) {
       console.error('Room creation/join error:', error);

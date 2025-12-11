@@ -299,7 +299,7 @@ public class RoomController {
                 .map(UserResponse::from)
                 .toList();
 
-        boolean isCreator = room.getCreator().equals(name);
+        boolean isCreator = creator != null && creator.getEmail().equals(name);
 
         // 최근 10분간 메시지 수 조회
         LocalDateTime tenMinutesAgo = LocalDateTime.now().minusMinutes(10);
