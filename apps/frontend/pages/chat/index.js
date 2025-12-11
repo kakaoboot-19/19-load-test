@@ -558,7 +558,7 @@ function ChatRoomsComponent() {
       });
 
       if (response.data.success) {
-        router.push(`/chat/room?room=${roomId}`);
+        router.push(`/chat/${roomId}`);
       }
     } catch (error) {
       let errorMessage = '입장에 실패했습니다.';
