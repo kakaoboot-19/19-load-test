@@ -1,65 +1,89 @@
 package com.ktb.chatapp.service;
 
-import com.ktb.chatapp.service.ratelimit.RedisRateLimitStore;
+import com.ktb.chatapp.model.RateLimit;
+import com.ktb.chatapp.service.ratelimit.RateLimitStore;
+import jakarta.annotation.PostConstruct;
 import java.time.Duration;
 import java.time.Instant;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import static java.net.InetAddress.*;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class RateLimitService {
 
-    private final RedisRateLimitStore redisRateLimitStore;
-
-    public RateLimitCheckResult checkRateLimit(String clientId, int maxRequests, Duration window) {
-        long windowSeconds = Math.max(1L, window.getSeconds());
-        long nowEpochSeconds = Instant.now().getEpochSecond();
-
+    private final RateLimitStore rateLimitStore;
+    @Value("${HOSTNAME:''}")
+    private String hostName;
+    
+    @PostConstruct
+    public void init() {
+        if (!hostName.isEmpty()) {
+            return;
+        }
+        hostName = generateHostname();
+    }
+    
+    private String generateHostname() {
         try {
-            // ✅ 멀티 인스턴스 공유 카운터를 위해 hostName prefix 제거
-            // windowSeconds까지 키에 포함하면 설정 변경/혼용에도 안전
-            String key = "rl:" + windowSeconds + ":" + clientId;
-
-            RedisRateLimitStore.Result r = redisRateLimitStore.incrementAndGetTtl(key, window);
-
-            long current = r.currentCount();
-            long ttlSeconds = Math.max(1L, r.ttlSeconds());
-            long resetEpochSeconds = nowEpochSeconds + ttlSeconds;
-
-            if (current > maxRequests) {
-                long retryAfterSeconds = ttlSeconds;
-                return RateLimitCheckResult.rejected(
-                        maxRequests,
-                        windowSeconds,
-                        resetEpochSeconds,
-                        retryAfterSeconds
-                );
-            }
-
-            int remaining = (int) Math.max(0, maxRequests - current);
-
-            return RateLimitCheckResult.allowed(
-                    maxRequests,
-                    remaining,
-                    windowSeconds,
-                    resetEpochSeconds,
-                    ttlSeconds
-            );
-
+            return getLocalHost().getHostName();
         } catch (Exception e) {
-            // Redis 장애 시 “허용”으로 풀어서 서비스 연속성을 확보(원하면 반대로 막아도 됨)
-            log.error("Rate limit check failed for client: {}", clientId, e);
-            long resetEpochSeconds = nowEpochSeconds + windowSeconds;
-            return RateLimitCheckResult.allowed(
-                    maxRequests,
-                    maxRequests,
-                    windowSeconds,
-                    resetEpochSeconds,
-                    windowSeconds
-            );
+            return "unknown-" + java.util.UUID.randomUUID().toString().substring(0, 8);
         }
     }
+    
+    
+    @Transactional
+    public RateLimitCheckResult checkRateLimit(String _clientId, int maxRequests, Duration window) {
+        String actualClientId = hostName + ":" + _clientId;
+        long windowSeconds = Math.max(1L, window.getSeconds());
+        Instant now = Instant.now();
+        long nowEpochSeconds = now.getEpochSecond();
+        Instant expiresAt = now.plus(window);
+
+        try {
+            RateLimit rateLimit = rateLimitStore.findByClientId(actualClientId).orElse(null);
+            int currentCount = rateLimit != null ? rateLimit.getCount() : 0;
+
+            if (rateLimit != null && currentCount >= maxRequests) {
+                long retryAfterSeconds = Math.max(1L,
+                    rateLimit.getExpiresAt().getEpochSecond() - nowEpochSeconds);
+                long resetEpochSeconds = rateLimit.getExpiresAt().getEpochSecond();
+                return RateLimitCheckResult.rejected(
+                        maxRequests, windowSeconds, resetEpochSeconds, retryAfterSeconds);
+            }
+
+            // Create or update rate limit
+            if (rateLimit == null) {
+                rateLimit = RateLimit.builder()
+                        .clientId(actualClientId)
+                        .count(1)
+                        .expiresAt(expiresAt)
+                        .build();
+            } else {
+                rateLimit.setCount(currentCount + 1);
+            }
+            rateLimitStore.save(rateLimit);
+
+            int newCount = currentCount + 1;
+            int remaining = Math.max(0, maxRequests - newCount);
+            long ttlSeconds = Math.max(1L, rateLimit.getExpiresAt().getEpochSecond() - nowEpochSeconds);
+            long resetEpochSeconds = rateLimit.getExpiresAt().getEpochSecond();
+
+            return RateLimitCheckResult.allowed(
+                    maxRequests, remaining, windowSeconds, resetEpochSeconds, ttlSeconds);
+        } catch (Exception e) {
+            log.error("Rate limit check failed for client: {}", actualClientId, e);
+            long resetEpochSeconds = nowEpochSeconds + windowSeconds;
+            return RateLimitCheckResult.allowed(
+                    maxRequests, maxRequests, windowSeconds, resetEpochSeconds, windowSeconds);
+        }
+    }
+    
 }

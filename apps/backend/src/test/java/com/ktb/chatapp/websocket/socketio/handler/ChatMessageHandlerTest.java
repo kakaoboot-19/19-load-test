@@ -8,12 +8,12 @@ import com.ktb.chatapp.model.User;
 import com.ktb.chatapp.repository.FileRepository;
 import com.ktb.chatapp.repository.MessageRepository;
 import com.ktb.chatapp.repository.RoomRepository;
-import com.ktb.chatapp.service.ChatUserCacheService;
+import com.ktb.chatapp.repository.UserRepository;
 import com.ktb.chatapp.service.RateLimitCheckResult;
 import com.ktb.chatapp.service.RateLimitService;
-import com.ktb.chatapp.service.RoomService;
 import com.ktb.chatapp.service.SessionService;
 import com.ktb.chatapp.service.SessionValidationResult;
+import com.ktb.chatapp.service.RoomService;
 import com.ktb.chatapp.util.BannedWordChecker;
 import com.ktb.chatapp.websocket.socketio.SocketUser;
 import com.ktb.chatapp.websocket.socketio.ai.AiService;
@@ -28,29 +28,26 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import java.util.concurrent.Executor;
 
 import static com.ktb.chatapp.websocket.socketio.SocketIOEvents.ERROR;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
-
 
 @ExtendWith(MockitoExtension.class)
 class ChatMessageHandlerTest {
-    private final Executor directExecutor = Runnable::run;
 
     @Mock private SocketIOServer socketIOServer;
     @Mock private MessageRepository messageRepository;
-    @Mock private RoomService roomService;
     @Mock private RoomRepository roomRepository;
-    @Mock private ChatUserCacheService chatUserCacheService;
+    @Mock private UserRepository userRepository;
     @Mock private FileRepository fileRepository;
     @Mock private AiService aiService;
     @Mock private SessionService sessionService;
     @Mock private BannedWordChecker bannedWordChecker;
     @Mock private RateLimitService rateLimitService;
-    private final MeterRegistry meterRegistry = new SimpleMeterRegistry();
+    @Mock private RoomService roomService;
+    private MeterRegistry meterRegistry = new SimpleMeterRegistry();
 
     private ChatMessageHandler handler;
 
@@ -62,14 +59,13 @@ class ChatMessageHandlerTest {
                         messageRepository,
                         roomService,
                         roomRepository,
-                        chatUserCacheService,
+                        userRepository,
                         fileRepository,
                         aiService,
                         sessionService,
                         bannedWordChecker,
                         rateLimitService,
-                        meterRegistry,
-                        directExecutor);
+                        meterRegistry);
     }
 
     @Test
@@ -82,15 +78,13 @@ class ChatMessageHandlerTest {
         when(sessionService.validateSession(socketUser.id(), socketUser.authSessionId()))
                 .thenReturn(validResult);
 
-        RateLimitCheckResult allowedResult =
-                RateLimitCheckResult.allowed(10000, 9999, 60,
-                        System.currentTimeMillis() / 1000 + 60, 60);
+        RateLimitCheckResult allowedResult = RateLimitCheckResult.allowed(10000, 9999, 60, System.currentTimeMillis() / 1000 + 60, 60);
         when(rateLimitService.checkRateLimit(eq(socketUser.id()), anyInt(), any()))
                 .thenReturn(allowedResult);
 
         User user = new User();
         user.setId("user-1");
-        when(chatUserCacheService.getUserById("user-1")).thenReturn(user);
+        when(userRepository.findById("user-1")).thenReturn(Optional.of(user));
 
         Room room = new Room();
         room.setId("room-1");
@@ -108,13 +102,10 @@ class ChatMessageHandlerTest {
 
         handler.handleChatMessage(client, request);
 
-        @SuppressWarnings("unchecked")
-        ArgumentCaptor<Map<String, String>> payloadCaptor =
-                ArgumentCaptor.forClass(Map.class);
+        ArgumentCaptor<Map<String, String>> payloadCaptor = ArgumentCaptor.forClass(Map.class);
         verify(client).sendEvent(eq(ERROR), payloadCaptor.capture());
         Map<String, String> payload = payloadCaptor.getValue();
-        assertEquals("MESSAGE_REJECTED", payload.get("code"));
-
+        org.junit.jupiter.api.Assertions.assertEquals("MESSAGE_REJECTED", payload.get("code"));
         verifyNoInteractions(messageRepository);
         verify(socketIOServer, never()).getRoomOperations(any());
     }

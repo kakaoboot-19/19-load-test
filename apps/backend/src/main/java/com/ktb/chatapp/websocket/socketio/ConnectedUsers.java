@@ -17,8 +17,8 @@ public class ConnectedUsers {
         return chatDataStore.get(buildKey(userId), SocketUser.class).orElse(null);
     }
     
-    public void set(String userId, SocketUser socketUser) {
-        chatDataStore.set(buildKey(userId), socketUser);
+    public void set(String userId, SocketUser sockerUser) {
+        chatDataStore.set(buildKey(userId), sockerUser);
     }
     
     public void del(String userId) {
