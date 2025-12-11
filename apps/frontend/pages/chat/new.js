@@ -45,7 +45,7 @@ function NewChatRoom() {
         throw new Error(errorData.message || '채팅방 입장에 실패했습니다.');
       }
 
-      router.push(`/chat/room?room=${roomId}`);
+      router.push(`/chat/${roomId}`);
     } catch (error) {
       console.error('Room join error:', error);
       throw error;
