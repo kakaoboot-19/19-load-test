@@ -11,20 +11,25 @@ import com.ktb.chatapp.model.Room;
 import com.ktb.chatapp.model.User;
 import com.ktb.chatapp.repository.MessageRepository;
 import com.ktb.chatapp.repository.RoomRepository;
-import com.ktb.chatapp.repository.UserRepository;
+import com.ktb.chatapp.service.ChatUserCacheService;
 import com.ktb.chatapp.websocket.socketio.SocketUser;
 import com.ktb.chatapp.websocket.socketio.UserRooms;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
-import static com.ktb.chatapp.websocket.socketio.SocketIOEvents.*;
+import static com.ktb.chatapp.websocket.socketio.SocketIOEvents.LEAVE_ROOM;
+import static com.ktb.chatapp.websocket.socketio.SocketIOEvents.MESSAGE;
+import static com.ktb.chatapp.websocket.socketio.SocketIOEvents.PARTICIPANTS_UPDATE;
+import static com.ktb.chatapp.websocket.socketio.SocketIOEvents.ERROR;
+import static com.ktb.chatapp.websocket.socketio.SocketIOEvents.USER_LEFT;
 
 /**
  * 방 퇴장 처리 핸들러
@@ -39,10 +44,10 @@ public class RoomLeaveHandler {
     private final SocketIOServer socketIOServer;
     private final MessageRepository messageRepository;
     private final RoomRepository roomRepository;
-    private final UserRepository userRepository;
+    private final ChatUserCacheService chatUserCacheService;   // ✅ UserRepository 대신 캐시 서비스
     private final UserRooms userRooms;
     private final MessageResponseMapper messageResponseMapper;
-    
+
     @OnEvent(LEAVE_ROOM)
     public void handleLeaveRoom(SocketIOClient client, String roomId) {
         try {
@@ -59,23 +64,30 @@ public class RoomLeaveHandler {
                 return;
             }
 
-            User user = userRepository.findById(userId).orElse(null);
-            Room room = roomRepository.findById(roomId).orElse(null);
-            
-            if (user == null || room == null) {
-                log.warn("Room {} not found or user {} has no access", roomId, userId);
+            // ✅ 유저 조회도 캐시 경유
+            User user;
+            try {
+                user = chatUserCacheService.getUserById(userId);
+            } catch (Exception e) {
+                log.warn("User not found in RoomLeaveHandler - userId={}", userId, e);
                 return;
             }
-            
+
+            Room room = roomRepository.findById(roomId).orElse(null);
+            if (room == null) {
+                log.warn("Room {} not found for user {}", roomId, userId);
+                return;
+            }
+
             roomRepository.removeParticipant(roomId, userId);
-            
+
             client.leaveRoom(roomId);
             userRooms.remove(userId, roomId);
-            
+
             log.info("User {} left room {}", userName, room.getName());
-            
+
             log.debug("Leave room cleanup - roomId: {}, userId: {}", roomId, userId);
-            
+
             sendSystemMessage(roomId, userName + "님이 퇴장하였습니다.");
             broadcastParticipantList(roomId);
             socketIOServer.getRoomOperations(roomId)
@@ -83,13 +95,13 @@ public class RoomLeaveHandler {
                             "userId", userId,
                             "userName", userName
                     ));
-            
+
         } catch (Exception e) {
             log.error("Error handling leaveRoom", e);
             client.sendEvent(ERROR, Map.of("message", "채팅방 퇴장 중 오류가 발생했습니다."));
         }
     }
-    
+
     private void sendSystemMessage(String roomId, String content) {
         try {
             Message systemMessage = new Message();
@@ -113,26 +125,32 @@ public class RoomLeaveHandler {
             log.error("Error sending system message", e);
         }
     }
-    
+
     private void broadcastParticipantList(String roomId) {
         Optional<Room> roomOpt = roomRepository.findById(roomId);
         if (roomOpt.isEmpty()) {
             return;
         }
-        
+
         var participantList = roomOpt.get()
                 .getParticipantIds()
                 .stream()
-                .map(userRepository::findById)
-                .filter(Optional::isPresent)
-                .map(Optional::get)
+                .map(userId -> {
+                    try {
+                        return chatUserCacheService.getUserById(userId);
+                    } catch (Exception e) {
+                        log.warn("Failed to load participant user - userId={}, roomId={}", userId, roomId);
+                        return null;
+                    }
+                })
+                .filter(Objects::nonNull)
                 .map(UserResponse::from)
                 .toList();
-        
+
         if (participantList.isEmpty()) {
             return;
         }
-        
+
         socketIOServer.getRoomOperations(roomId)
                 .sendEvent(PARTICIPANTS_UPDATE, participantList);
     }

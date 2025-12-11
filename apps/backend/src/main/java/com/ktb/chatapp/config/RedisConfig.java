@@ -3,14 +3,21 @@ package com.ktb.chatapp.config;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.Arrays;
+import java.time.Duration;
 
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import java.time.Duration;
+import io.lettuce.core.ReadFrom;
+import lombok.extern.slf4j.Slf4j;
+
+import org.redisson.Redisson;
+import org.redisson.api.RedissonClient;
+import org.redisson.config.Config;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
@@ -30,9 +37,6 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
-
-import io.lettuce.core.ReadFrom;
-import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Configuration
@@ -155,6 +159,56 @@ public class RedisConfig {
                 .cacheDefaults(defaultConfig)
                 .withInitialCacheConfigurations(cacheConfigs)
                 .build();
+    }
+
+    /**
+     * Socket.IO 클러스터링용 RedissonClient
+     * - Sentinel / Standalone 모두 지원
+     * - socketio.cluster.enabled=true 일 때만 활성화
+     */
+    @Bean(destroyMethod = "shutdown")
+    @ConditionalOnProperty(name = "socketio.cluster.enabled", havingValue = "true")
+    public RedissonClient redissonClient() {
+        Config config = new Config();
+
+        boolean isSentinel =
+                sentinelMaster != null && !sentinelMaster.isBlank()
+                        && sentinelNodes != null && !sentinelNodes.isBlank();
+
+        // Sentinel 모드
+        if (isSentinel) {
+
+            log.info("Redisson Sentinel 모드로 초기화합니다. master={}, nodes={}",
+                    sentinelMaster, sentinelNodes);
+
+            var sentinelConfig = config.useSentinelServers()
+                    .setMasterName(sentinelMaster);
+
+            Arrays.stream(sentinelNodes.split(","))
+                    .map(String::trim)
+                    .filter(s -> !s.isEmpty())
+                    .forEach(node -> sentinelConfig.addSentinelAddress("redis://" + node));
+
+            // 비밀번호가 있을 때만 AUTH
+            if (redisPassword != null && !redisPassword.trim().isEmpty()) {
+                sentinelConfig.setPassword(redisPassword.trim());
+            }
+
+        } else {
+            // Standalone 모드
+            String address = "redis://" + redisHost + ":" + redisPort;
+            log.info("Redisson Standalone 모드로 초기화합니다. address={}", address);
+
+            var singleConfig = config.useSingleServer()
+                    .setAddress(address);
+
+            // 비밀번호가 있을 때만 AUTH
+            if (redisPassword != null && !redisPassword.trim().isEmpty()) {
+                singleConfig.setPassword(redisPassword.trim());
+            }
+        }
+
+        return Redisson.create(config);
     }
 
     private ObjectMapper objectMapper() {
