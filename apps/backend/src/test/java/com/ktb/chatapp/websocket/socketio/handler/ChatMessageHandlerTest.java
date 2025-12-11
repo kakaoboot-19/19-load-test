@@ -13,6 +13,7 @@ import com.ktb.chatapp.service.RateLimitCheckResult;
 import com.ktb.chatapp.service.RateLimitService;
 import com.ktb.chatapp.service.SessionService;
 import com.ktb.chatapp.service.SessionValidationResult;
+import com.ktb.chatapp.service.RoomService;
 import com.ktb.chatapp.util.BannedWordChecker;
 import com.ktb.chatapp.websocket.socketio.SocketUser;
 import com.ktb.chatapp.websocket.socketio.ai.AiService;
@@ -45,6 +46,7 @@ class ChatMessageHandlerTest {
     @Mock private SessionService sessionService;
     @Mock private BannedWordChecker bannedWordChecker;
     @Mock private RateLimitService rateLimitService;
+    @Mock private RoomService roomService;
     private MeterRegistry meterRegistry = new SimpleMeterRegistry();
 
     private ChatMessageHandler handler;
@@ -55,6 +57,7 @@ class ChatMessageHandlerTest {
                 new ChatMessageHandler(
                         socketIOServer,
                         messageRepository,
+                        roomService,
                         roomRepository,
                         userRepository,
                         fileRepository,
