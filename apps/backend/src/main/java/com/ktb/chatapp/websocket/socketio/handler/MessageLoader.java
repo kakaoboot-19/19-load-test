@@ -6,7 +6,7 @@ import com.ktb.chatapp.dto.MessageResponse;
 import com.ktb.chatapp.model.Message;
 import com.ktb.chatapp.model.User;
 import com.ktb.chatapp.repository.MessageRepository;
-import com.ktb.chatapp.repository.UserRepository;
+import com.ktb.chatapp.service.ChatUserCacheService;
 import com.ktb.chatapp.service.MessageReadStatusService;
 import jakarta.annotation.Nullable;
 import java.time.LocalDateTime;
@@ -28,18 +28,20 @@ import static java.util.Collections.emptyList;
 public class MessageLoader {
 
     private final MessageRepository messageRepository;
-    private final UserRepository userRepository;
+    private final ChatUserCacheService chatUserCacheService; // ✅ UserRepository 대신
     private final MessageResponseMapper messageResponseMapper;
     private final MessageReadStatusService messageReadStatusService;
 
     private static final int BATCH_SIZE = 30;
 
-    /**
-     * 메시지 로드
-     */
     public FetchMessagesResponse loadMessages(FetchMessagesRequest data, String userId) {
         try {
-            return loadMessagesInternal(data.roomId(), data.limit(BATCH_SIZE), data.before(LocalDateTime.now()), userId);
+            return loadMessagesInternal(
+                    data.roomId(),
+                    data.limit(BATCH_SIZE),
+                    data.before(LocalDateTime.now()),
+                    userId
+            );
         } catch (Exception e) {
             log.error("Error loading initial messages for room {}", data.roomId(), e);
             return FetchMessagesResponse.builder()
@@ -61,13 +63,13 @@ public class MessageLoader {
 
         List<Message> messages = messagePage.getContent();
 
-        // DESC로 조회했으므로 ASC로 재정렬 (채팅 UI 표시 순서)
+        // DESC 조회 → ASC로 뒤집기
         List<Message> sortedMessages = messages.reversed();
-        
+
         var messageIds = sortedMessages.stream().map(Message::getId).toList();
         messageReadStatusService.updateReadStatus(messageIds, userId);
-        
-        // 메시지 응답 생성
+
+        // ✅ 유저 조회를 캐시 서비스로 우회
         List<MessageResponse> messageResponses = sortedMessages.stream()
                 .map(message -> {
                     var user = findUserById(message.getSenderId());
@@ -86,15 +88,16 @@ public class MessageLoader {
                 .build();
     }
 
-    /**
-     * AI 경우 null 반환 가능
-     */
     @Nullable
     private User findUserById(String id) {
         if (id == null) {
             return null;
         }
-        return userRepository.findById(id)
-                .orElse(null);
+        try {
+            return chatUserCacheService.getUserById(id); // ✅ Mongo → Redis 캐시
+        } catch (Exception e) {
+            log.warn("Failed to load user for message sender - userId={}", id);
+            return null;
+        }
     }
 }

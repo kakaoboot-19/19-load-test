@@ -8,12 +8,12 @@ import com.ktb.chatapp.model.User;
 import com.ktb.chatapp.repository.FileRepository;
 import com.ktb.chatapp.repository.MessageRepository;
 import com.ktb.chatapp.repository.RoomRepository;
-import com.ktb.chatapp.repository.UserRepository;
+import com.ktb.chatapp.service.ChatUserCacheService;
 import com.ktb.chatapp.service.RateLimitCheckResult;
 import com.ktb.chatapp.service.RateLimitService;
+import com.ktb.chatapp.service.RoomService;
 import com.ktb.chatapp.service.SessionService;
 import com.ktb.chatapp.service.SessionValidationResult;
-import com.ktb.chatapp.service.RoomService;
 import com.ktb.chatapp.util.BannedWordChecker;
 import com.ktb.chatapp.websocket.socketio.SocketUser;
 import com.ktb.chatapp.websocket.socketio.ai.AiService;
@@ -30,8 +30,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import static com.ktb.chatapp.websocket.socketio.SocketIOEvents.ERROR;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -39,15 +39,15 @@ class ChatMessageHandlerTest {
 
     @Mock private SocketIOServer socketIOServer;
     @Mock private MessageRepository messageRepository;
+    @Mock private RoomService roomService;
     @Mock private RoomRepository roomRepository;
-    @Mock private UserRepository userRepository;
+    @Mock private ChatUserCacheService chatUserCacheService;
     @Mock private FileRepository fileRepository;
     @Mock private AiService aiService;
     @Mock private SessionService sessionService;
     @Mock private BannedWordChecker bannedWordChecker;
     @Mock private RateLimitService rateLimitService;
-    @Mock private RoomService roomService;
-    private MeterRegistry meterRegistry = new SimpleMeterRegistry();
+    private final MeterRegistry meterRegistry = new SimpleMeterRegistry();
 
     private ChatMessageHandler handler;
 
@@ -59,7 +59,7 @@ class ChatMessageHandlerTest {
                         messageRepository,
                         roomService,
                         roomRepository,
-                        userRepository,
+                        chatUserCacheService,
                         fileRepository,
                         aiService,
                         sessionService,
@@ -78,13 +78,15 @@ class ChatMessageHandlerTest {
         when(sessionService.validateSession(socketUser.id(), socketUser.authSessionId()))
                 .thenReturn(validResult);
 
-        RateLimitCheckResult allowedResult = RateLimitCheckResult.allowed(10000, 9999, 60, System.currentTimeMillis() / 1000 + 60, 60);
+        RateLimitCheckResult allowedResult =
+                RateLimitCheckResult.allowed(10000, 9999, 60,
+                        System.currentTimeMillis() / 1000 + 60, 60);
         when(rateLimitService.checkRateLimit(eq(socketUser.id()), anyInt(), any()))
                 .thenReturn(allowedResult);
 
         User user = new User();
         user.setId("user-1");
-        when(userRepository.findById("user-1")).thenReturn(Optional.of(user));
+        when(chatUserCacheService.getUserById("user-1")).thenReturn(user);
 
         Room room = new Room();
         room.setId("room-1");
@@ -102,10 +104,13 @@ class ChatMessageHandlerTest {
 
         handler.handleChatMessage(client, request);
 
-        ArgumentCaptor<Map<String, String>> payloadCaptor = ArgumentCaptor.forClass(Map.class);
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Map<String, String>> payloadCaptor =
+                ArgumentCaptor.forClass(Map.class);
         verify(client).sendEvent(eq(ERROR), payloadCaptor.capture());
         Map<String, String> payload = payloadCaptor.getValue();
-        org.junit.jupiter.api.Assertions.assertEquals("MESSAGE_REJECTED", payload.get("code"));
+        assertEquals("MESSAGE_REJECTED", payload.get("code"));
+
         verifyNoInteractions(messageRepository);
         verify(socketIOServer, never()).getRoomOperations(any());
     }
