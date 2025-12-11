@@ -26,7 +26,7 @@ public class MessageReadStatusService {
      * @param userId 읽은 사용자 ID
      */
     public void updateReadStatus(List<String> messageIds, String userId) {
-        if (messageIds.isEmpty()) {
+        if (messageIds == null ||messageIds.isEmpty()) {
             return;
         }
         
@@ -36,21 +36,22 @@ public class MessageReadStatusService {
                 .build();
         
         try {
-            List<Message> messagesToUpdate = messageRepository.findAllById(messageIds);
-            for (Message message : messagesToUpdate) {
-                if (message.getReaders() == null) {
-                    message.setReaders(new ArrayList<>());
-                }
-                boolean alreadyRead = message.getReaders().stream()
-                        .anyMatch(r -> r.getUserId().equals(userId));
-                if (!alreadyRead) {
-                    message.getReaders().add(readerInfo);
-                }
-                messageRepository.save(message);
-            }
-            
+//            List<Message> messagesToUpdate = messageRepository.findAllById(messageIds);
+//            for (Message message : messagesToUpdate) {
+//                if (message.getReaders() == null) {
+//                    message.setReaders(new ArrayList<>());
+//                }
+//                boolean alreadyRead = message.getReaders().stream()
+//                        .anyMatch(r -> r.getUserId().equals(userId));
+//                if (!alreadyRead) {
+//                    message.getReaders().add(readerInfo);
+//                }
+//                messageRepository.save(message);
+//            }
+            messageRepository.addReaderToMessages(messageIds, userId, readerInfo);
+
             log.debug("Read status updated for {} messages by user {}",
-                    messagesToUpdate.size(), userId);
+                    messageIds.size(), userId);
 
         } catch (Exception e) {
             log.error("Read status update error for user {}", userId, e);
