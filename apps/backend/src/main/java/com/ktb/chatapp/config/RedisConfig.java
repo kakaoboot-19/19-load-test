@@ -2,31 +2,59 @@ package com.ktb.chatapp.config;
 
 import java.util.Map;
 import java.util.HashMap;
+
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.databind.ObjectMapper;
+
 import java.time.Duration;
+
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
 import org.springframework.data.redis.cache.RedisCacheManager;
+
+import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
+
 import org.springframework.data.redis.core.RedisTemplate;
+
 import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
+
 
 @Configuration
 @EnableCaching
 public class RedisConfig {
 
+    // 💡 배포 환경에서 적용될 값
+    @Value("${REDIS_HOST:localhost}")
+    private String redisHost;
+
+    @Value("${REDIS_PORT:6379}")
+    private int redisPort;
+
+    @Value("${REDIS_PASSWORD:}")
+    private String redisPassword;
+
     @Bean
     public RedisConnectionFactory redisConnectionFactory() {
-        // spring.data.redis.host, port 값을 자동으로 읽어감
-        return new LettuceConnectionFactory();
+
+        RedisStandaloneConfiguration config = new RedisStandaloneConfiguration();
+        config.setHostName(redisHost);
+        config.setPort(redisPort);
+
+        if (redisPassword != null && !redisPassword.isEmpty()) {
+            config.setPassword(redisPassword);
+        }
+
+        return new LettuceConnectionFactory(config);
     }
 
     @Bean
@@ -48,6 +76,7 @@ public class RedisConfig {
 
     @Bean
     public CacheManager cacheManager(RedisConnectionFactory connectionFactory) {
+
         RedisCacheConfiguration defaultConfig = RedisCacheConfiguration.defaultCacheConfig()
                 .serializeKeysWith(
                         RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer())
@@ -63,14 +92,12 @@ public class RedisConfig {
         // 캐시 이름별 개별 설정
         Map<String, RedisCacheConfiguration> cacheConfigs = new HashMap<>();
 
-        // 유저/방 정보는 조금 더 길게 캐시해도 됨
         cacheConfigs.put("userById",
                 defaultConfig.entryTtl(Duration.ofMinutes(10)));
 
         cacheConfigs.put("roomById",
                 defaultConfig.entryTtl(Duration.ofMinutes(5)));
 
-        // 최근 메시지 수는 자주 바뀌니까 TTL 짧게
         cacheConfigs.put("recentMessageCount",
                 defaultConfig.entryTtl(Duration.ofSeconds(90)));
 
