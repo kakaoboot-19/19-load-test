@@ -28,14 +28,17 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import java.util.concurrent.Executor;
 
 import static com.ktb.chatapp.websocket.socketio.SocketIOEvents.ERROR;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+
 @ExtendWith(MockitoExtension.class)
 class ChatMessageHandlerTest {
+    private final Executor directExecutor = Runnable::run;
 
     @Mock private SocketIOServer socketIOServer;
     @Mock private MessageRepository messageRepository;
@@ -65,7 +68,8 @@ class ChatMessageHandlerTest {
                         sessionService,
                         bannedWordChecker,
                         rateLimitService,
-                        meterRegistry);
+                        meterRegistry,
+                        directExecutor);
     }
 
     @Test
