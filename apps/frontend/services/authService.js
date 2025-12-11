@@ -219,16 +219,15 @@ class AuthService {
   /**
    * 비밀번호 변경 API 호출
    */
-  async changePassword(currentPassword, newPassword, token, sessionId) {
+  async changePassword(newPassword, token, sessionId) {
     try {
       if (!token) {
         throw new Error('인증 정보가 없습니다.');
       }
 
       const response = await axios.put(
-        `${API_URL}/api/users/profile`,
+        `${API_URL}/api/users/profile/password`,
         {
-          currentPassword,
           newPassword
         },
         {

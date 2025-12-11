@@ -1,9 +1,6 @@
 package com.ktb.chatapp.controller;
 
-import com.ktb.chatapp.dto.StandardResponse;
-import com.ktb.chatapp.dto.ProfileImageResponse;
-import com.ktb.chatapp.dto.UpdateProfileRequest;
-import com.ktb.chatapp.dto.UserResponse;
+import com.ktb.chatapp.dto.*;
 import com.ktb.chatapp.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -99,6 +96,24 @@ public class UserController {
             return ResponseEntity.internalServerError().body(StandardResponse.error("프로필 업데이트 중 오류가 발생했습니다."));
         }
     }
+
+    @PutMapping("/profile/password")
+    public ResponseEntity<?> updateCurrentUserPassword(
+            Principal principal,
+            @Valid @RequestBody UpdatePasswordRequest updateRequest) {
+
+        try {
+            UserResponse response = userService.updateUserPassword(principal.getName(), updateRequest);
+            return ResponseEntity.ok(new UserUpdateResponse("비밀번호가 업데이트되었습니다.", response));
+        } catch (UsernameNotFoundException e) {
+            log.error("사용자 비밀번호 업데이트 실패: {}", e.getMessage());
+            return ResponseEntity.status(404).body(StandardResponse.error("사용자를 찾을 수 없습니다."));
+        } catch (Exception e) {
+            log.error("사용자 비밀번호 업데이트 중 오류 발생: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().body(StandardResponse.error("비밀번호 업데이트 중 오류가 발생했습니다."));
+        }
+    }
+
 
     /**
      * 프로필 이미지 업로드

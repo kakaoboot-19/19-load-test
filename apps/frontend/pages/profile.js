@@ -55,7 +55,6 @@ const Profile = () => {
       // 비밀번호 변경 처리
       if (formData.newPassword) {
         await authService.changePassword(
-          '',
           formData.newPassword,
           user.token,
           user.sessionId
