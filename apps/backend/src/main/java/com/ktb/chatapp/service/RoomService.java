@@ -242,21 +242,24 @@ public class RoomService {
             }
         }
 
-        // 이미 참여중인지 확인
-        if (!room.getParticipantIds().contains(user.getId())) {
+        boolean joined = room.addParticipant(user.getId());
+
+        if (joined) { // 실제 입장했을 때만
+            log.info("Atomic Update 성공: 신규 유저 입장");
+
             // 채팅방 참여
-            room.getParticipantIds().add(user.getId());
             room = roomRepository.save(room);
-        }
 
-        // 여기서 메시지 수는 변하지 않으므로 recentMessageCount 캐시는 건드리지 않음
+            // 여기서 메시지 수는 변하지 않으므로 recentMessageCount 캐시는 건드리지 않음
 
-        // Publish event for room updated
-        try {
-            RoomResponse roomResponse = mapToRoomResponse(room, name);
-            eventPublisher.publishEvent(new RoomUpdatedEvent(this, roomId, roomResponse));
-        } catch (Exception e) {
-            log.error("roomUpdate 이벤트 발행 실패", e);
+            // Publish event for room updated
+            try {
+                RoomResponse roomResponse = mapToRoomResponse(room, name);
+                eventPublisher.publishEvent(new RoomUpdatedEvent(this, roomId, roomResponse));
+            } catch (Exception e) {
+                log.error("roomUpdate 이벤트 발행 실패", e);
+            }
+
         }
 
         return room;

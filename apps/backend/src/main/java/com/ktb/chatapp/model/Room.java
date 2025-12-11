@@ -53,11 +53,11 @@ public class Room {
      *
      * @param userId 추가할 사용자 ID
      */
-    public void addParticipant(String userId) {
+    public boolean addParticipant(String userId) {
         if (this.participantIds == null) {
             this.participantIds = new HashSet<>();
         }
-        this.participantIds.add(userId);
+        return this.participantIds.add(userId); // 사용자 아이디가 중복: false, 사용자 아이디가 존재: true
     }
     
     /**
