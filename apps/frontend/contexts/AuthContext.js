@@ -350,33 +350,35 @@ export const withoutAuth = (WrappedComponent) => {
     const { isAuthenticated, isLoading } = useAuth();
 
     useEffect(() => {
-      // 라우터가 준비되고 로딩이 끝났을 때
       if (router.isReady && !isLoading && isAuthenticated) {
-        // 이미 로그인된 사용자는 채팅 페이지로 리다이렉트
         router.replace('/chat');
       }
     }, [isAuthenticated, isLoading, router, router.isReady]);
 
-    // 로딩 중이거나 이미 로그인된 사용자인 경우 로딩 화면
-    if (isLoading || isAuthenticated) {
+    // ✅ 이미 로그인된 경우에만 "리다이렉트 중" 화면
+    if (isAuthenticated) {
       return (
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          height: '100vh',
-          backgroundColor: 'var(--vapor-color-background)',
-          color: 'var(--vapor-color-text-primary)'
-        }}>
-          <div>Loading...</div>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            height: '100vh',
+            backgroundColor: 'var(--vapor-color-background)',
+            color: 'var(--vapor-color-text-primary)',
+          }}
+        >
+          <div>Redirecting...</div>
         </div>
       );
     }
 
+    // ✅ 비로그인 상태에서는 isLoading 상관 없이 항상 페이지 렌더
     return <WrappedComponent {...props} />;
   };
 
-  const displayName = WrappedComponent.displayName || WrappedComponent.name || 'Component';
+  const displayName =
+    WrappedComponent.displayName || WrappedComponent.name || 'Component';
   WithoutAuthComponent.displayName = `WithoutAuth(${displayName})`;
 
   return WithoutAuthComponent;

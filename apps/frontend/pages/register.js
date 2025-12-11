@@ -84,7 +84,7 @@ const Register = () => {
         render={<Form onSubmit={handleSubmit} />}
       >
         <div className="text-center mb-4">
-          <img src="images/logo-h.png" class="w-1/2 mx-auto" />
+          <img src="images/logo-h.png" className="w-1/2 mx-auto" />
         </div>
 
         {error && (
