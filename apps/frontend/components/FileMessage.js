@@ -30,7 +30,9 @@ const FileMessage = ({
   const messageDomRef = useRef(null);
   useEffect(() => {
     if (msg?.file) {
-      const url = fileService.getPreviewUrl(msg.file, user?.token, user?.sessionId, true);
+      // const url = fileService.getPreviewUrl(msg.file, user?.token, user?.sessionId, true);
+      console.log(msg.file);
+      const url = "https://d18gg1itlvmcfg.cloudfront.net/uploads/" + msg.file.filename;
       setPreviewUrl(url);
       console.debug('Preview URL generated:', {
         filename: msg.file.filename,
@@ -170,8 +172,8 @@ const FileMessage = ({
         throw new Error('인증 정보가 없습니다.');
       }
 
-      const previewUrl = fileService.getPreviewUrl(msg.file, user?.token, user?.sessionId, true);
-
+      // const previewUrl = fileService.getPreviewUrl(msg.file, user?.token, user?.sessionId, true);
+      const previewUrl = "https://d18gg1itlvmcfg.cloudfront.net/uploads/" + msg.file.filename;
       return (
         <div className="bg-transparent-pattern">
           <img
