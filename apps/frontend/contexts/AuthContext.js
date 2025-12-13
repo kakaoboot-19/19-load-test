@@ -357,7 +357,8 @@ export const withoutAuth = (WrappedComponent) => {
 
     useEffect(() => {
       if (!isLoading && isAuthenticated) {
-        router.replace('/chat');
+        const redirect = router.query.redirect;
+        router.replace(redirect ? decodeURIComponent(redirect) : '/chat');
       }
     }, [isAuthenticated, isLoading, router]);
 
