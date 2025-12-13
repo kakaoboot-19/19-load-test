@@ -8,8 +8,7 @@ const nextConfig = {
   outputFileTracingRoot: __dirname,
   // 개발 환경에서의 에러 오버레이 설정
   devIndicators: {
-    buildActivity: true,
-    buildActivityPosition: 'bottom-right'
+    position: 'bottom-right'
   },
   // 개발 환경에서만 더 자세한 에러 로깅
   ...(process.env.NODE_ENV === 'development' && {
