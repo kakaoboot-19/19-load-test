@@ -159,7 +159,7 @@ export const useRoomHandling = (
       }
       throw error;
     }
-  }, [userRooms, cleanup, router]);
+  }, [userRooms, cleanup, router, user]);
 
   const fetchRoomData = useCallback(async (roomId) => {
     try {
@@ -206,7 +206,7 @@ export const useRoomHandling = (
     } catch (error) {
       throw error;
     }
-  }, [mountedRef, handleSessionError]);
+  }, [mountedRef, handleSessionError, user]);
 
   const joinRoom = useCallback(async (roomId) => {
     if (!roomId || !mountedRef.current) {
