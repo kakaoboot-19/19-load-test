@@ -47,8 +47,12 @@ const CustomAvatar = forwardRef(({
     if (imagePath.startsWith('http')) {
       return imagePath;
     }
-    // API URL과 결합 필요한 경우
-    return `${process.env.NEXT_PUBLIC_API_URL}${imagePath}`;
+    
+    // S3/CloudFront CDN URL 사용
+    const CDN_URL = "https://d18gg1itlvmcfg.cloudfront.net";
+    const path = imagePath.startsWith('/') ? imagePath : `/${imagePath}`;
+    
+    return `${CDN_URL}${path}`;
   }, [src]);
 
   // persistent 모드: 프로필 이미지 URL 처리

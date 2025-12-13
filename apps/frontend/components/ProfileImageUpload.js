@@ -15,9 +15,15 @@ const ProfileImageUpload = ({ currentImage, onImageChange }) => {
   // 프로필 이미지 URL 생성
   const getProfileImageUrl = (imagePath) => {
     if (!imagePath) return null;
-    return imagePath.startsWith('http') ? 
-      imagePath : 
-      `${process.env.NEXT_PUBLIC_API_URL}${imagePath}`;
+    if (imagePath.startsWith('http')) return imagePath;
+
+    // S3/CloudFront CDN URL 사용 (FileMessage.js와 동일하게 맞춤)
+    const CDN_URL = "https://d18gg1itlvmcfg.cloudfront.net";
+    
+    // imagePath가 이미 '/'로 시작하는지 확인하여 중복 슬래시 방지
+    const path = imagePath.startsWith('/') ? imagePath : `/${imagePath}`;
+    
+    return `${CDN_URL}${path}`;
   };
 
   // 컴포넌트 마운트 시 이미지 설정
