@@ -2,7 +2,7 @@
 # Environment Variables
 ###################################
 # Artillery가 부하를 주는 대상 URL
-export BASE_URL ?= https://chat.goorm-ktb-024.goorm.teams
+export BASE_URL ?= https://chat.goorm-ktb-019.goorm.team
 
 # 대량 채팅발송 시, 발송되는 메시지 갯수
 export MASS_MESSAGE_COUNT ?= 10
@@ -16,7 +16,7 @@ export ACTION_TIMEOUT_LONG ?= 2000
 export FORBIDDEN_WORDS ?= "b3sig78jv,9c0hej6x,lbl276sz"
 
 # Artillery에서 부하테스트 설정
-export PHASE1_DURATION ?= 5 # 해당 시간 내에
+export PHASE1_DURATION ?= 60 # 해당 시간 내에
 export PHASE1_ARRIVAL_COUNT ?= 1 # 몇명의 가상 유저를 생성할건지?
 
 verify-env:
@@ -29,6 +29,13 @@ verify-env:
 	# Check Artillery Package Installed
 	@npm list artillery 2>&1 || { echo >&2 "❌ Artillery is not installed . Installing Artillery..."; npm install artillery; }
 
+export REPORT_JSON := results/$(shell date +'%Y%m%d%H%M%S')-report.json
+export REPORT_HTML := results/$(shell date +'%Y%m%d%H%M%S')-report.html
+
 artillery:
+	@mkdir -p results
 	@echo "🚀 Running basic head test ($(PHASE1_ARRIVAL_COUNT) users for $(PHASE1_DURATION)s)..."
-	@npx artillery run artillery-config.yaml
+	@npx artillery run --output $(REPORT_JSON) artillery-config.yaml
+	@echo "✅ Load test finished. Generating HTML report..."
+	@npx artillery report $(REPORT_JSON) -o $(REPORT_HTML)
+	@echo "✨ Report saved to $(REPORT_HTML)"

@@ -7,8 +7,9 @@ config:
   processor: "./all-scenarios.js"
   engines:
     playwright:
+      browser: chromium
       launchOptions:
-        headless: true
+        headless: false
         slowMo: 100
       contextOptions:
         viewport: null
