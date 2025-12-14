@@ -1,0 +1,17 @@
+services:
+  backend:
+    image: jmin99/ktb-chat-backend:v1.1
+    container_name: ktb-backend
+    restart: unless-stopped
+    ports:
+      - "5001:5001"
+      - "5002:5002"
+    env_file:
+      - .env
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
