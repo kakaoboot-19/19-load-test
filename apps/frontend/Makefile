@@ -28,3 +28,12 @@ deploy:
 		echo "✅ Deployment to $$server completed!"; \
 	done
 	@echo "✅ All deployments completed!"
+
+docker-build:
+    @echo "🐳 Building Docker image..."
+	docker build -t michael568/ktb-chat-frontend --platform linux/amd64 .
+
+# Docker 이미지 푸시                                                                              
+docker-push:
+    @echo "🚀 Pushing Docker image..."
+    docker push michael568/ktb-chat-frontend
